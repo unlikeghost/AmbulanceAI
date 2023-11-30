@@ -7,25 +7,25 @@ from librosa import load as load_audio
 from onnxruntime import InferenceSession
 
 
-CLASS_NAMES:dict  = {
+CLASS_NAMES: dict = {
     0: "Ambulance",
     1: "Fire_truck",
     2: "Civilian_car",
 }
 
-TIME_DURATION:int = 3
+TIME_DURATION: int = 3
 
 
 app = FastAPI()
 model = InferenceSession("model.onnx")
 
 
-def procress_audio(file:str):
+def procress_audio(file: str):
     audio, sample_rate = load_audio(file, sr=None, mono=True)
     chunk_samples = int(TIME_DURATION * sample_rate)
     audio = audio[:chunk_samples]
     mfccs = mfcc(y=audio, sr=sample_rate, n_mfcc=40)
-    mfccs_processed = mean(mfccs.T,axis=0)
+    mfccs_processed = mean(mfccs.T, axis=0)
     mfccs_processed = mfccs_processed.reshape(1, -1)
     return mfccs_processed
 
@@ -37,21 +37,21 @@ async def root():
 
 @app.post("/predict")
 async def predict(file: Annotated[bytes, File()]):
-    try:  
+    try:
         with open("temp.wav", "wb") as f:
             f.write(file)
         f.close()
     except Exception as e:
-        return {"error": "Something went wrong while saving the audio file."}
-        
+        return {"res": "Something went wrong while saving the audio file."}
+
     try:
         input_sample = procress_audio("temp.wav")
     except Exception as e:
-        return {"error": "Something went wrong while processing the audio file."}
-    
+        return {"res": "Something went wrong while processing the audio file."}
+
     results = model.run(["dense_2"], {"dense_input": input_sample})[0]
     class_index = argmax(results)
-    return {"class": CLASS_NAMES[class_index]}
+    return {"res": CLASS_NAMES[class_index]}
 
 
 if __name__ == "__main__":
